@@ -12,7 +12,8 @@
   html,body{margin:0;height:100%;background:#2a1f33;overflow:hidden;touch-action:none;
     -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
   body{display:flex;align-items:center;justify-content:center;}
-  canvas{display:block;touch-action:none;box-shadow:0 0 60px rgba(0,0,0,.55);}
+  canvas{display:block;touch-action:none;box-shadow:0 0 60px rgba(0,0,0,.55);border-radius:min(3vh,18px);cursor:pointer;}
+  @media (max-aspect-ratio: 9/16){ canvas{border-radius:0;} }
 </style>
 </head>
 <body>
@@ -34,7 +35,7 @@ let cache = {}, mapCv = null;
 
 function resize(){
   const iw = innerWidth, ih = innerHeight;
-  W = Math.round(Math.max(360, Math.min(1100, H * iw / ih)));
+  W = 360;                          // всегда вертикальный «телефонный» экран
   const s = Math.min(iw / W, ih / H);
   const dpr = window.devicePixelRatio || 1;
   R = Math.max(1, Math.min(2, s * dpr));
@@ -694,7 +695,7 @@ function onTap(e){
     else if (kPhase === 'blown' && kT > 150){ fadeTo(() => { setState('title'); parts = []; }); }
   }
 }
-cv.addEventListener('pointerdown', onTap);
+document.addEventListener('pointerdown', onTap);   // тап/клик в любом месте окна
 const unlockAudio = () => { if (!ac){ try { ac = new (window.AudioContext||window.webkitAudioContext)(); } catch(err){} } if (ac && ac.state === 'suspended') ac.resume().catch(()=>{}); };
 addEventListener('touchend', unlockAudio, { passive:true });
 document.addEventListener('visibilitychange', () => { if (!ac) return; if (document.hidden) ac.suspend().catch(()=>{}); else ac.resume().catch(()=>{}); });
