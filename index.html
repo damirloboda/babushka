@@ -1020,13 +1020,55 @@ function drawFG(L){
   }
   const gr = g.createLinearGradient(0,H-46,0,H); gr.addColorStop(0,'rgba(10,20,20,0)'); gr.addColorStop(1,'rgba(10,20,20,.3)'); g.fillStyle = gr; g.fillRect(0,H-46,W,46);
 }
+// ---------- кинематографичные эффекты ----------
+const FX = {};
+function fxGrad(key, stops){ if (!FX[key]){ const gr = ctx.createRadialGradient(0,0,0,0,0,1); stops.forEach(s => gr.addColorStop(s[0], s[1])); FX[key] = gr; } return FX[key]; }
+function softBlob(x,y,rx,ry,key,stops){ g.save(); g.translate(x,y); g.scale(rx,ry); g.fillStyle = fxGrad(key,stops); g.beginPath(); g.arc(0,0,1,0,TAU); g.fill(); g.restore(); }
+let grainCv = null, grainOff = [0,0];
+function grain(){
+  if (!grainCv){ grainCv = document.createElement('canvas'); grainCv.width = grainCv.height = 128; const x = grainCv.getContext('2d'), im = x.createImageData(128,128);
+    for (let i=0;i<im.data.length;i+=4){ const v = 90 + Math.random()*80; im.data[i] = im.data[i+1] = im.data[i+2] = v; im.data[i+3] = 255; } x.putImageData(im,0,0); }
+  if (!FX.grainPat) FX.grainPat = ctx.createPattern(grainCv,'repeat');
+  if (Math.floor(t) % 3 === 0) grainOff = [rndi(128), rndi(128)];
+  g.save(); g.globalAlpha = .07; g.globalCompositeOperation = 'overlay'; g.translate(grainOff[0]-128, grainOff[1]-128); g.fillStyle = FX.grainPat; g.fillRect(0,0,W+256,H+256); g.restore();
+}
+function cloudShadows(L){
+  if (L.stars) return;
+  g.save(); g.beginPath(); g.rect(0,GROUND-150,W,H); g.clip();
+  for (let i=0;i<3;i++){ const span = W+700, x = ((i*430 + t*.22 - camX*.92) % span + span) % span - 350;
+    softBlob(x, GROUND-20+i*14, 230+i*30, 80, 'cshadow', [[0,'rgba(20,40,70,.17)'],[.55,'rgba(20,40,70,.09)'],[1,'rgba(20,40,70,0)']]); }
+  g.restore();
+}
+function cine(L){
+  const sx = L.sun.x*W, sy = L.sun.y;
+  g.save(); g.globalCompositeOperation = 'lighter';
+  // пылинки, искрящиеся в солнечном свете
+  if (L.amb !== 'firefly') for (let i=0;i<28;i++){ const span = W+40;
+    const x = ((hash(i,601)*W*1.4 - camX*(.3+hash(i,602)*.5) + Math.sin(t*.01+i)*20) % span + span) % span - 20, y = 110 + hash(i,603)*390 + Math.sin(t*.013+i*2)*14;
+    const near = clamp(1 - Math.hypot(x-sx,y-sy)/(W*.9),0,1), tw = .5+.5*Math.sin(t*.06+i*3);
+    g.globalAlpha = (.12+.6*near)*tw; circ(x,y,.7+hash(i,604)*1.5,'#fff6d8'); }
+  // блик объектива от солнца
+  const dx = W/2 - sx, dy = H*.5 - sy, pulse = .85 + .15*Math.sin(t*.02);
+  g.globalAlpha = pulse;
+  [[.32,9,'rgba(255,220,150,.10)'],[.55,24,'rgba(160,220,255,.06)'],[.8,5,'rgba(255,255,255,.14)'],[1.2,40,'rgba(255,170,200,.05)'],[1.5,14,'rgba(180,255,210,.08)'],[1.75,7,'rgba(255,240,180,.1)']].forEach(f => circ(sx+dx*f[0], sy+dy*f[0], f[1], f[2]));
+  g.globalAlpha = .5; line(sx-70,sy,sx+70,sy,'rgba(255,245,210,.25)',1.2);
+  // мягкое боке на переднем плане
+  for (let i=0;i<6;i++){ const span = W+260, x = ((i*190 - camX*1.9) % span + span) % span - 130, y = H - 30 - hash(i,611)*100, r = 16+hash(i,612)*24;
+    g.globalAlpha = .4 + .2*Math.sin(t*.03+i); softBlob(x,y,r,r,'bokeh',[[0,'rgba(255,240,205,.2)'],[.72,'rgba(255,240,205,.12)'],[.86,'rgba(255,240,205,.16)'],[1,'rgba(255,240,205,0)']]); }
+  g.restore();
+}
 function postFX(L){
+  cine(L);
   const sx = L.sun.x*W, lg = g.createRadialGradient(sx,L.sun.y,10,sx,L.sun.y,Math.max(W,H)*.9);
   lg.addColorStop(0,'rgba(255,240,200,.17)'); lg.addColorStop(1,'rgba(255,240,200,0)'); g.fillStyle = lg; g.fillRect(0,0,W,H);
   const vg = g.createRadialGradient(W/2,H*.47,H*.4,W/2,H*.47,Math.max(W,H)*.8);
   vg.addColorStop(0,'rgba(20,10,40,0)'); vg.addColorStop(1,'rgba(20,10,40,.36)'); g.fillStyle = vg; g.fillRect(0,0,W,H);
 }
 function drawAmb(L){
+  if (!L.stars){ const gp = (t*.0035) % 1; if (gp < .4){ const k = gp/.4;
+    for (let i=0;i<4;i++){ const x = W*1.15 - k*(W*1.7) + i*70, y = 170 + i*52 + Math.sin(k*6+i)*12;
+      g.globalAlpha = Math.sin(k*Math.PI)*(.32-i*.05); shape(c => { c.moveTo(x,y); c.bezierCurveTo(x+40,y-12,x+90,y+12,x+150,y-6); c.quadraticCurveTo(x+170,y-14,x+160,y-22); },null,'#fff',1.3); }
+    g.globalAlpha = 1; } }
   for (let i=0;i<amb.length;i++){ const a = amb[i];
     const x = ((a.x - camX*.85 + (L.amb==='firefly'?0:t*.3*a.s)) % (W+100) + (W+100)) % (W+100) - 50;
     if (L.amb === 'butterfly'){ if (i > 8) continue; const y = a.y+80 + Math.sin(t*.03+a.ph)*26, fl = Math.abs(Math.sin(t*.3+a.ph)), col = ['#ff9ec7','#ffe36b','#fff','#8fd3ff'][i%4];
@@ -1072,9 +1114,9 @@ function drawWorld(L){
   g.fillStyle = hz; g.fillRect(0,GROUND-250,W,200);
   drawHill(HILL[1], L.hills[1], L.hills[2], 'rgba(255,255,255,.28)', 3, L);
   scatterSets(HILL[1], L.mid, 440, 7, .8, .97);
-  if (L.shafts){ g.save(); g.globalCompositeOperation = 'lighter';
+  { const sa = L.shafts ? .12 : .045; g.save(); g.globalCompositeOperation = 'lighter';
     for (let i=0;i<5;i++){ const x = ((i*190 - camX*.2) % (W+300) + (W+300)) % (W+300) - 120, sw = Math.sin(t*.01+i)*14;
-      const sh = g.createLinearGradient(0,60,0,GROUND-40); sh.addColorStop(0,'rgba(255,200,140,.12)'); sh.addColorStop(1,'rgba(255,200,140,0)'); g.fillStyle = sh;
+      const sh = g.createLinearGradient(0,60,0,GROUND-40); sh.addColorStop(0,'rgba(255,214,150,'+sa+')'); sh.addColorStop(1,'rgba(255,214,150,0)'); g.fillStyle = sh;
       g.beginPath(); g.moveTo(x+60+sw,40); g.lineTo(x+96+sw,40); g.lineTo(x+10,GROUND-30); g.lineTo(x-70,GROUND-30); g.closePath(); g.fill(); }
     g.restore(); }
   if (L.river) drawRiver(L);
@@ -1083,6 +1125,7 @@ function drawWorld(L){
   scatter(L.near, HILL[2], 124, 11, .95);
   if (L.tint){ g.fillStyle = L.tint; g.fillRect(0,0,W,H); }
   drawGround(L);
+  cloudShadows(L);
   drawAmb(L);
   for (const p of plats) drawPlat(p);
   for (const o of obstacles){ const hop = o.k === 'hen' ? -Math.abs(Math.sin(t*.12+o.ph))*3 : 0; put(o.k, o.x-camX, GROUND+3+hop, 1, o.k === 'hen' || o.k === 'cat' || o.k === 'hedgehog'); }
@@ -1283,6 +1326,12 @@ function drawKitchen(){
   box(wx-6,wy-6,104,118,6,'#fff8ee'); const sk = g.createLinearGradient(0,wy,0,wy+106); sk.addColorStop(0,'#7fc4f5'); sk.addColorStop(1,'#d9f2ff'); g.fillStyle = sk; g.fillRect(wx,wy,92,106);
   circ(wx+66,wy+26,11,'#fff3a8'); g.save(); g.beginPath(); g.rect(wx,wy,92,106); g.clip(); put('cloud',wx+30,wy+52,.32); circ(wx+20,wy+112,30,'#7cc763'); circ(wx+70,wy+118,34,'#58ad4e'); g.restore();
   box(wx+43.5,wy,5,106,0,'#fff8ee'); box(wx,wy+50,92,5,0,'#fff8ee');
+  g.save(); g.globalCompositeOperation = 'lighter';
+  const lb = g.createLinearGradient(wx+92,wy+40,wx+330,wy+250); lb.addColorStop(0,'rgba(255,238,190,.26)'); lb.addColorStop(1,'rgba(255,238,190,0)'); g.fillStyle = lb;
+  g.beginPath(); g.moveTo(wx+92,wy); g.lineTo(wx+92,wy+106); g.lineTo(wx+340,wy+330); g.lineTo(wx+340,wy+70); g.closePath(); g.fill();
+  for (let i=0;i<22;i++){ const u = hash(i,701), v = hash(i,702), px = wx+100+u*220 + Math.sin(t*.012+i)*8, py = wy+10+u*150+v*110 + Math.sin(t*.017+i*2)*10;
+    g.globalAlpha = (.3+.5*Math.sin(t*.05+i*2.3)*.5+.25)*(1-u*.7); circ(px,py,.8+hash(i,703)*1.4,'#fff7dc'); }
+  g.restore();
   const curtain = (x,dir) => shape(c => { c.moveTo(x,wy-8); c.lineTo(x+dir*34,wy-8); c.quadraticCurveTo(x+dir*30,wy+50,x+dir*6,wy+78); c.lineTo(x,wy+112); c.closePath(); },'#ff9eb5','#e2607a',1.2);
   curtain(wx-8,1); curtain(wx+100,-1); box(wx-14,wy-14,120,7,3.5,'#b87a45'); circ(wx-14,wy-10.5,4.5,'#b87a45'); circ(wx+106,wy-10.5,4.5,'#b87a45');
   box(wx-12,wy+110,116,8,3,'#fff8ee'); box(wx+62,wy+92,20,18,3,'#c9743a'); circ(wx+66,wy+86,6,'#58ad4e'); circ(wx+76,wy+84,7,'#58ad4e'); circ(wx+71,wy+80,3.2,'#ff6f8e');
@@ -1531,6 +1580,7 @@ function drawKitchenScene(){
       if (kT > 150) prompt('Нажми, чтобы сыграть ещё', 616); }
   }
   drawParts();
+  const kv = g.createRadialGradient(W/2,H*.45,H*.35,W/2,H*.45,Math.max(W,H)*.78); kv.addColorStop(0,'rgba(60,20,30,0)'); kv.addColorStop(1,'rgba(60,20,30,.3)'); g.fillStyle = kv; g.fillRect(0,0,W,H);
 }
 
 // =====================================================================
@@ -1596,6 +1646,7 @@ function draw(){
 }
 
 function drawTrans(){
+  grain();
   if (trans <= 0) return;
   const k = trans < 13 ? 1-trans/13 : (trans-13)/15, rad = Math.max(0, ease(clamp(k,0,1))*Math.hypot(W,H)*.62);
   g.fillStyle = '#2a1f33'; g.beginPath(); g.rect(-10,-10,W+20,H+20); g.arc(W/2,H*.52,rad,0,TAU,true); g.fill('evenodd');
